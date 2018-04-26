@@ -40,6 +40,8 @@ var errBase64DecodeFailed = errors.New(
 )
 var errMalformedUsernamePassword = errors.New("malformed username:password")
 var errFailedAuth = errors.New("invalid username or password in authorization")
+var errDuplicateUsernames = errors.New("duplicate username in realm")
+var errNoRealmUsers = errors.New("realm doesnt contain any users")
 
 // Authorizer specifies an interface which enables performing authentication
 // checks and providing an HTTP failure handler.
@@ -132,18 +134,27 @@ type Realm struct {
 // MakeRealm creates a new `Realm` instance for the given realm string and
 // any applicable `User`s.
 // This will default the `Realm`'s charset is `utf-8`.
-func MakeRealm(realm string, users ...User) Realm {
+// If no users are provided, or users share the same username, an error will
+// occur.
+func MakeRealm(realm string, users []User) (Realm, error) {
 	auth := Realm{
 		Charset: "utf-8",
 		Realm:   realm,
 		users:   make(map[string]string),
 	}
 
+	if len(users) == 0 {
+		return auth, errNoRealmUsers
+	}
+
 	for _, user := range users {
+		if _, ok := auth.users[user.username]; ok {
+			return auth, errDuplicateUsernames
+		}
 		auth.users[user.username] = user.password
 	}
 
-	return auth
+	return auth, nil
 }
 
 // IsAuthorized checks the authorization string for a correct scheme &
