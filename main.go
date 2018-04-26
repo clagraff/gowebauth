@@ -32,93 +32,275 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
-var ErrMissingHeader = errors.New("missing authorization header")
-var ErrMalformedHeader = errors.New("malformed authorizationheader")
-var ErrBadScheme = errors.New("unsupported/missing authorization header scheme")
-var ErrBase64DecodeFailed = errors.New("failed decoding base64 authorization username:password")
-var ErrMalformedUsernamePassword = errors.New("malformed username:password")
-var ErrFailedAuth = errors.New("invalid username or password in authorization")
+var errMissingHeader = errors.New("missing authorization header")
+var errMalformedHeader = errors.New("malformed authorizationheader")
+var errBadScheme = errors.New("unsupported/missing authorization header scheme")
+var errBase64DecodeFailed = errors.New(
+	"failed decoding base64 authorization username:password",
+)
+var errMalformedUsernamePassword = errors.New("malformed username:password")
+var errFailedAuth = errors.New("invalid username or password in authorization")
 
-type BasicAuth struct {
-	Username string
-	Password string
-	Realm    string
-	Charset  string
+// Authorizer specifies an interface which enables performing authentication
+// checks and providing an HTTP failure handler.
+type Authorizer interface {
+	IsAuthorized(string) error
+	FailureHandler(error) http.Handler
 }
 
-func (auth BasicAuth) Authenticate(w http.ResponseWriter, r *http.Request) error {
-	authHeader := r.Header.Get("Authorization")
-	if len(authHeader) <= 0 {
-		return ErrMissingHeader
+// User represents a single HTTP Basic Auth username and password pair.
+// Since the username and password of a `User` are non-exported, you should
+// create a new `User` using `MakeUser(username, password)`.
+type User struct {
+	username string
+	password string
+}
+
+// MakeUser creates a new `User` instance with the specified username and
+// plaintext password.
+func MakeUser(username, password string) User {
+	return User{
+		username: username,
+		password: password,
+	}
+}
+
+// IsAuthorized checks the authorization string for the `Basic` scheme and a
+// username and password which match the current user.
+func (user User) IsAuthorized(authorization string) error {
+	authParts := strings.Split(authorization, " ")
+	if len(authParts) != 2 {
+		return errMalformedHeader
 	}
 
-	authHeaderParts := strings.Split(authHeader, " ")
-	if len(authHeaderParts) != 2 {
-		return ErrMalformedHeader
-	}
-
-	scheme := authHeaderParts[0]
-	authorization := authHeaderParts[1]
+	scheme := authParts[0]
+	encodedCredentials := authParts[1]
 
 	if strings.ToLower(scheme) != "basic" {
-		return ErrBadScheme
+		return errBadScheme
 	}
 
-	data, err := base64.StdEncoding.DecodeString(authorization)
+	credentials, err := base64.StdEncoding.DecodeString(encodedCredentials)
 	if err != nil {
-		return ErrBase64DecodeFailed
+		return errBase64DecodeFailed
 	}
 
-	authParts := strings.Split(string(data), ":")
+	credParts := strings.Split(string(credentials), ":")
 
-	if len(authParts) != 2 {
-		return ErrMalformedUsernamePassword
+	if len(credParts) != 2 {
+		return errMalformedUsernamePassword
 	}
 
-	requestUsername := authParts[0]
-	requestPassword := authParts[1]
+	username := credParts[0]
+	password := credParts[1]
 
-	if auth.Username != requestUsername || auth.Password != requestPassword {
-		return ErrFailedAuth
+	if user.username != username || user.password != password {
+		return errFailedAuth
 	}
 
 	return nil
 }
 
-func (auth BasicAuth) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	err := auth.Authenticate(w, r)
-	if err != nil {
-		auth.RequireAuthenticate(w)
-	}
-}
-
-func (auth BasicAuth) RequireAuthenticate(w http.ResponseWriter) {
-	buff := bytes.NewBufferString("Basic")
-	if len(auth.Realm) > 0 {
-		buff.WriteString(" realm=\"")
-		buff.WriteString(auth.Realm)
-		buff.WriteString("\"")
-	}
-	if len(auth.Charset) > 0 {
-		buff.WriteString(" charset=\"")
-		buff.WriteString(auth.Charset)
-		buff.WriteString("\"")
-	}
-
-	headerMap := w.Header()
-	headerMap.Set("WWW-Authenticate", buff.String())
-
-	w.WriteHeader(401)
-}
-
-func (auth BasicAuth) Handler(next http.Handler) http.Handler {
+// FailureHandler reponds with a `401` HTTP code, the `WWW-Authenticate` header,
+// and an error message for HTTP Basic Auth failed requests.
+// The realm is set as `Restricted` with the character set of `utf-8`. To
+// control these, use a `Realm` instead.
+func (user User) FailureHandler(authErr error) http.Handler {
 	fn := func(w http.ResponseWriter, r *http.Request) {
-		if err := auth.Authenticate(w, r); err != nil {
-			auth.RequireAuthenticate(w)
-			return
+		headerMap := w.Header()
+		headerMap.Set("WWW-Authenticate", `Basic realm="Restricted" charset="utf-8"`)
+
+		errMsg := []byte(authErr.Error())
+
+		w.WriteHeader(401)
+		_, err := w.Write(errMsg)
+		if err != nil {
+			panic(err)
 		}
-		next.ServeHTTP(w, r)
 	}
 
 	return http.HandlerFunc(fn)
+}
+
+// Realm represents a collection of `Users` for a given HTTP Basic Auth realm.
+type Realm struct {
+	Charset string
+	Realm   string
+	users   map[string]string
+}
+
+// MakeRealm creates a new `Realm` instance for the given realm string and
+// any applicable `User`s.
+// This will default the `Realm`'s charset is `utf-8`.
+func MakeRealm(realm string, users ...User) Realm {
+	auth := Realm{
+		Charset: "utf-8",
+		Realm:   realm,
+		users:   make(map[string]string),
+	}
+
+	for _, user := range users {
+		auth.users[user.username] = user.password
+	}
+
+	return auth
+}
+
+// IsAuthorized checks the authorization string for a correct scheme &
+// matching username and password for any of the users existing in the current
+// realm.
+func (realm Realm) IsAuthorized(authorization string) error {
+	authParts := strings.Split(authorization, " ")
+	if len(authParts) != 2 {
+		return errMalformedHeader
+	}
+
+	scheme := authParts[0]
+	encodedCredentials := authParts[1]
+
+	if strings.ToLower(scheme) != "basic" {
+		return errBadScheme
+	}
+
+	credentials, err := base64.StdEncoding.DecodeString(encodedCredentials)
+	if err != nil {
+		return errBase64DecodeFailed
+	}
+
+	credParts := strings.Split(string(credentials), ":")
+
+	if len(credParts) != 2 {
+		return errMalformedUsernamePassword
+	}
+
+	requestUsername := credParts[0]
+	requestPassword := credParts[1]
+
+	if password, ok := realm.users[requestUsername]; ok {
+		if requestPassword == password {
+			return nil
+		}
+	}
+
+	return errFailedAuth
+}
+
+// FailureHandler reponds with a `401` HTTP code, the `WWW-Authenticate` header,
+// and an error message for HTTP Basic Auth failed requests.
+func (realm Realm) FailureHandler(authErr error) http.Handler {
+	fn := func(w http.ResponseWriter, r *http.Request) {
+		buff := bytes.NewBufferString("Basic")
+		_, err := buff.WriteString(" realm=\"")
+		if err != nil {
+			panic(err)
+		}
+
+		if len(realm.Realm) > 0 {
+			_, err = buff.WriteString(realm.Realm)
+			if err != nil {
+				panic(err)
+			}
+		}
+
+		_, err = buff.WriteString("\"")
+		if err != nil {
+			panic(err)
+		}
+
+		charset := "utf-8"
+		if len(realm.Charset) > 0 {
+			charset = realm.Charset
+		}
+
+		_, err = buff.WriteString(" charset=\"")
+		if err != nil {
+			panic(err)
+		}
+
+		_, err = buff.WriteString(charset)
+		if err != nil {
+			panic(err)
+		}
+
+		_, err = buff.WriteString("\"")
+		if err != nil {
+			panic(err)
+		}
+
+		headerMap := w.Header()
+		headerMap.Set("WWW-Authenticate", buff.String())
+
+		errMsg := []byte(authErr.Error())
+
+		w.WriteHeader(401)
+		_, err = w.Write(errMsg)
+		if err != nil {
+			panic(err)
+		}
+	}
+
+	return http.HandlerFunc(fn)
+}
+
+// Middleware can be used with some web frameworks for creating authorization
+// middleware.
+// If a request fails to pass authorization, the authorizer's failure
+// handler is used generate a response, and the request is no longer processed.
+func Middleware(auth Authorizer) func(http.Handler) http.Handler {
+	outter := func(next http.Handler) http.Handler {
+		inner := func(w http.ResponseWriter, r *http.Request) {
+			authHeader := r.Header.Get("Authorization")
+			if len(authHeader) <= 0 {
+				auth.FailureHandler(errMissingHeader).ServeHTTP(w, r)
+				return
+			}
+
+			err := auth.IsAuthorized(authHeader)
+			if err != nil {
+				auth.FailureHandler(err).ServeHTTP(w, r)
+				return
+			}
+
+			next.ServeHTTP(w, r)
+		}
+		return http.HandlerFunc(inner)
+	}
+
+	return outter
+}
+
+// Handle can be used with some web frameworks for creating authorization
+// middleware.
+// If a request fails to pass authorization, the authorizer's failure
+// handler is used generate a response, and the request is no longer processed.
+func Handle(
+	auth Authorizer,
+	fn func(http.ResponseWriter, *http.Request),
+) http.Handler {
+	return http.HandlerFunc(HandlerFunc(auth, fn))
+}
+
+// HandlerFunc can be used with some web frameworks for creating authorization
+// middleware.
+// If a request fails to pass authorization, the authorizer's failure
+// handler is used generate a response, and the request is no longer processed.
+func HandlerFunc(
+	auth Authorizer,
+	fn func(http.ResponseWriter, *http.Request),
+) func(http.ResponseWriter, *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		authHeader := r.Header.Get("Authorization")
+		if len(authHeader) <= 0 {
+			auth.FailureHandler(errMissingHeader).ServeHTTP(w, r)
+			return
+		}
+
+		err := auth.IsAuthorized(authHeader)
+		if err != nil {
+			auth.FailureHandler(err).ServeHTTP(w, r)
+			return
+		}
+
+		fn(w, r)
+	}
 }
