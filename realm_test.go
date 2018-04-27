@@ -115,7 +115,7 @@ func TestRealm_IsAuthorized(t *testing.T) {
 	}
 
 	for index, row := range table {
-		err := realm.IsAuthorized(row.authentication)
+		_, err := realm.IsAuthorized(row.authentication)
 		if err != row.err {
 			t.Errorf("for case %d: wanted %v, but got %v", index, row.err, err)
 		}

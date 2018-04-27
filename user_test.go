@@ -67,7 +67,7 @@ func TestUser_IsAuthorized_MissingParts(t *testing.T) {
 	user := User{username: "edward", password: "p0nyta1l"}
 	authentication := base64.StdEncoding.EncodeToString([]byte("edward:p0nytail"))
 
-	if err := user.IsAuthorized(authentication); err != errMalformedHeader {
+	if _, err := user.IsAuthorized(authentication); err != errMalformedHeader {
 		t.Errorf("wanted %v, but got %v", errMalformedHeader, err)
 	}
 }
@@ -79,7 +79,7 @@ func TestUser_IsAuthorized_BadScheme(t *testing.T) {
 	user := User{username: "edward", password: "p0nyta1l"}
 	authentication := "Wrong " + base64.StdEncoding.EncodeToString([]byte("edward:p0nytail"))
 
-	if err := user.IsAuthorized(authentication); err != errBadScheme {
+	if _, err := user.IsAuthorized(authentication); err != errBadScheme {
 		t.Errorf("wanted %v, but got %v", errBadScheme, err)
 	}
 }
@@ -91,7 +91,7 @@ func TestUser_IsAuthorized_Base64DecodeFail(t *testing.T) {
 	user := User{username: "edward", password: "p0nyta1l"}
 	authentication := "Basic " + hex.EncodeToString([]byte("edward:p0nytail"))
 
-	if err := user.IsAuthorized(authentication); err != errBase64DecodeFailed {
+	if _, err := user.IsAuthorized(authentication); err != errBase64DecodeFailed {
 		t.Errorf("wanted %v, but got %v", errBase64DecodeFailed, err)
 	}
 }
@@ -103,7 +103,7 @@ func TestUser_IsAuthorized_MalformedCredentials(t *testing.T) {
 	user := User{username: "edward", password: "p0nyta1l"}
 	authentication := "Basic " + base64.StdEncoding.EncodeToString([]byte("edward p0nytail"))
 
-	if err := user.IsAuthorized(authentication); err != errMalformedUsernamePassword {
+	if _, err := user.IsAuthorized(authentication); err != errMalformedUsernamePassword {
 		t.Errorf("wanted %v, but got %v", errMalformedUsernamePassword, err)
 	}
 }
@@ -115,7 +115,7 @@ func TestUser_IsAuthorized_BadCredentials(t *testing.T) {
 	user := User{username: "edward", password: "p0nyta1l"}
 	authentication := "Basic " + base64.StdEncoding.EncodeToString([]byte("al:m3t@l"))
 
-	if err := user.IsAuthorized(authentication); err != errFailedAuth {
+	if _, err := user.IsAuthorized(authentication); err != errFailedAuth {
 		t.Errorf("wanted %v, but got %v", errFailedAuth, err)
 	}
 }
@@ -141,9 +141,12 @@ func TestUser_IsAuthorized_ValidCredentials(t *testing.T) {
 			[]byte(row.username+":"+row.password),
 		)
 
-		if err := user.IsAuthorized(auth); err != nil {
+		if username, err := user.IsAuthorized(auth); err != nil {
 			t.Errorf("wanted %v, but got %v", nil, err)
+		} else if username != row.username {
+			t.Errorf("wanted %v, but got %v", row.username, username)
 		}
+
 	}
 }
 

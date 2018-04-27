@@ -67,28 +67,28 @@ func MakeRealm(realm string, users []User) (Realm, error) {
 // IsAuthorized checks the authorization string for a correct scheme &
 // matching username and password for any of the users existing in the current
 // realm.
-func (realm Realm) IsAuthorized(authorization string) error {
+func (realm Realm) IsAuthorized(authorization string) (string, error) {
 	authParts := strings.Split(authorization, " ")
 	if len(authParts) != 2 {
-		return errMalformedHeader
+		return "", errMalformedHeader
 	}
 
 	scheme := authParts[0]
 	encodedCredentials := authParts[1]
 
 	if strings.ToLower(scheme) != "basic" {
-		return errBadScheme
+		return "", errBadScheme
 	}
 
 	credentials, err := base64.StdEncoding.DecodeString(encodedCredentials)
 	if err != nil {
-		return errBase64DecodeFailed
+		return "", errBase64DecodeFailed
 	}
 
 	credParts := strings.Split(string(credentials), ":")
 
 	if len(credParts) != 2 {
-		return errMalformedUsernamePassword
+		return "", errMalformedUsernamePassword
 	}
 
 	requestUsername := credParts[0]
@@ -96,11 +96,11 @@ func (realm Realm) IsAuthorized(authorization string) error {
 
 	if password, ok := realm.users[requestUsername]; ok {
 		if requestPassword == password {
-			return nil
+			return requestUsername, nil
 		}
 	}
 
-	return errFailedAuth
+	return "", errFailedAuth
 }
 
 // FailureHandler reponds with a `401` HTTP code, the `WWW-Authenticate` header,

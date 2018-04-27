@@ -49,38 +49,38 @@ func MakeUser(username, password string) User {
 
 // IsAuthorized checks the authorization string for the `Basic` scheme and a
 // username and password which match the current user.
-func (user User) IsAuthorized(authorization string) error {
+func (user User) IsAuthorized(authorization string) (string, error) {
 	authParts := strings.Split(authorization, " ")
 	if len(authParts) != 2 {
-		return errMalformedHeader
+		return "", errMalformedHeader
 	}
 
 	scheme := authParts[0]
 	encodedCredentials := authParts[1]
 
 	if strings.ToLower(scheme) != "basic" {
-		return errBadScheme
+		return "", errBadScheme
 	}
 
 	credentials, err := base64.StdEncoding.DecodeString(encodedCredentials)
 	if err != nil {
-		return errBase64DecodeFailed
+		return "", errBase64DecodeFailed
 	}
 
 	credParts := strings.Split(string(credentials), ":")
 
 	if len(credParts) != 2 {
-		return errMalformedUsernamePassword
+		return "", errMalformedUsernamePassword
 	}
 
 	username := credParts[0]
 	password := credParts[1]
 
 	if user.username != username || user.password != password {
-		return errFailedAuth
+		return "", errFailedAuth
 	}
 
-	return nil
+	return username, nil
 }
 
 // FailureHandler reponds with a `401` HTTP code, the `WWW-Authenticate` header,

@@ -25,6 +25,7 @@ SOFTWARE.
 */
 
 import (
+	"context"
 	"errors"
 	"net/http"
 )
@@ -40,10 +41,17 @@ var errFailedAuth = errors.New("invalid username or password in authorization")
 var errDuplicateUsernames = errors.New("duplicate username in realm")
 var errNoRealmUsers = errors.New("realm doesnt contain any users")
 
+type contextKey string
+
+// ContextKey is the key used to store the identity from
+// an `IsAuthorized` call into a request's `context.Context`.
+// This is used for middleware and handlers.
+var ContextKey = contextKey("Identity")
+
 // Authorizer specifies an interface which enables performing authentication
 // checks and providing an HTTP failure handler.
 type Authorizer interface {
-	IsAuthorized(string) error
+	IsAuthorized(string) (string, error)
 	FailureHandler(error) http.Handler
 }
 
@@ -60,13 +68,20 @@ func Middleware(auth Authorizer) func(http.Handler) http.Handler {
 				return
 			}
 
-			err := auth.IsAuthorized(authHeader)
+			identifier, err := auth.IsAuthorized(authHeader)
+
 			if err != nil {
 				auth.FailureHandler(err).ServeHTTP(w, r)
 				return
 			}
 
-			next.ServeHTTP(w, r)
+			updatedContext := context.WithValue(
+				r.Context(),
+				ContextKey,
+				identifier,
+			)
+
+			next.ServeHTTP(w, r.WithContext(updatedContext))
 		}
 		return http.HandlerFunc(inner)
 	}
@@ -100,12 +115,19 @@ func HandlerFunc(
 			return
 		}
 
-		err := auth.IsAuthorized(authHeader)
+		identifier, err := auth.IsAuthorized(authHeader)
+
 		if err != nil {
 			auth.FailureHandler(err).ServeHTTP(w, r)
 			return
 		}
 
-		fn(w, r)
+		updatedContext := context.WithValue(
+			r.Context(),
+			ContextKey,
+			identifier,
+		)
+
+		fn(w, r.WithContext(updatedContext))
 	}
 }
