@@ -60,6 +60,19 @@ func TestMakeUser(t *testing.T) {
 	}
 }
 
+// TestMakeUser_Panics tests that calling the MakeUser function with a
+// colon present in the username results in causing a panic.
+func TestMakeUser_Panics(t *testing.T) {
+	defer func(t *testing.T) {
+		err := recover()
+		if err == nil {
+			t.Errorf("wanted to panic, but it didn't happen")
+		}
+	}(t)
+
+	MakeUser("invalid:username", "password")
+}
+
 // TestUser_IsAuthorized_Empty tests that an error is raised when
 // trying to check user authentication when given an authentication string
 // which is empty.

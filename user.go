@@ -39,8 +39,13 @@ type User struct {
 }
 
 // MakeUser creates a new `User` instance with the specified username and
-// plaintext password.
+// plaintext password. Usernames containing any colon characters results in
+// a panic.
 func MakeUser(username, password string) User {
+	if strings.Contains(username, ":") {
+		panic("username cannot contain a colon")
+	}
+
 	return User{
 		username: username,
 		password: password,

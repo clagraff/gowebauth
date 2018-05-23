@@ -179,8 +179,6 @@ func makeParamMap(authParam string) (map[string]string, error) {
 
 	sections := strings.Split(authParam, ",")
 	if len(sections) < 5 {
-		fmt.Println(params)
-		fmt.Println(authParam)
 		return params, errors.New("missing digest parameters")
 	}
 
@@ -247,7 +245,6 @@ func (digest Digest) IsAuthorized(r *http.Request) (string, error) {
 	}
 
 	if response.realm != digest.realm.Name {
-		fmt.Println(response.realm, digest.realm.Name)
 		return "", errors.New("wrong realm")
 	}
 
