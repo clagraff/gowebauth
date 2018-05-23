@@ -1,5 +1,11 @@
 package gowebauth
 
+import (
+	"encoding/base64"
+	"net/http"
+	"strings"
+)
+
 /*
 MIT License
 
@@ -24,12 +30,6 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
-import (
-	"encoding/base64"
-	"net/http"
-	"strings"
-)
-
 // User represents a single HTTP Basic Auth username and password pair.
 // Since the username and password of a `User` are non-exported, you should
 // create a new `User` using `MakeUser(username, password)`.
@@ -49,7 +49,12 @@ func MakeUser(username, password string) User {
 
 // IsAuthorized checks the authorization string for the `Basic` scheme and a
 // username and password which match the current user.
-func (user User) IsAuthorized(authorization string) (string, error) {
+func (user User) IsAuthorized(r *http.Request) (string, error) {
+	authorization := r.Header.Get("Authorization")
+	if len(authorization) <= 0 {
+		return "", errMalformedHeader
+	}
+
 	authParts := strings.Split(authorization, " ")
 	if len(authParts) != 2 {
 		return "", errMalformedHeader

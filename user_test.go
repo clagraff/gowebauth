@@ -60,6 +60,20 @@ func TestMakeUser(t *testing.T) {
 	}
 }
 
+// TestUser_IsAuthorized_Empty tests that an error is raised when
+// trying to check user authentication when given an authentication string
+// which is empty.
+func TestUser_IsAuthorized_Empty(t *testing.T) {
+	user := User{username: "edward", password: "p0nyta1l"}
+
+	r := new(http.Request)
+	r.Header = make(http.Header)
+	r.Header.Set("Authorization", "")
+	if _, err := user.IsAuthorized(r); err != errMalformedHeader {
+		t.Errorf("wanted %v, but got %v", errMalformedHeader, err)
+	}
+}
+
 // TestUser_IsAuthorized_MissingParts tests that an error is raised when
 // trying to check user authentication when given an authentication string
 // which doesnt follow the `<Scheme> <Token>` pattern.
@@ -67,7 +81,10 @@ func TestUser_IsAuthorized_MissingParts(t *testing.T) {
 	user := User{username: "edward", password: "p0nyta1l"}
 	authentication := base64.StdEncoding.EncodeToString([]byte("edward:p0nytail"))
 
-	if _, err := user.IsAuthorized(authentication); err != errMalformedHeader {
+	r := new(http.Request)
+	r.Header = make(http.Header)
+	r.Header.Set("Authorization", authentication)
+	if _, err := user.IsAuthorized(r); err != errMalformedHeader {
 		t.Errorf("wanted %v, but got %v", errMalformedHeader, err)
 	}
 }
@@ -79,7 +96,10 @@ func TestUser_IsAuthorized_BadScheme(t *testing.T) {
 	user := User{username: "edward", password: "p0nyta1l"}
 	authentication := "Wrong " + base64.StdEncoding.EncodeToString([]byte("edward:p0nytail"))
 
-	if _, err := user.IsAuthorized(authentication); err != errBadScheme {
+	r := new(http.Request)
+	r.Header = make(http.Header)
+	r.Header.Set("Authorization", authentication)
+	if _, err := user.IsAuthorized(r); err != errBadScheme {
 		t.Errorf("wanted %v, but got %v", errBadScheme, err)
 	}
 }
@@ -91,7 +111,10 @@ func TestUser_IsAuthorized_Base64DecodeFail(t *testing.T) {
 	user := User{username: "edward", password: "p0nyta1l"}
 	authentication := "Basic " + hex.EncodeToString([]byte("edward:p0nytail"))
 
-	if _, err := user.IsAuthorized(authentication); err != errBase64DecodeFailed {
+	r := new(http.Request)
+	r.Header = make(http.Header)
+	r.Header.Set("Authorization", authentication)
+	if _, err := user.IsAuthorized(r); err != errBase64DecodeFailed {
 		t.Errorf("wanted %v, but got %v", errBase64DecodeFailed, err)
 	}
 }
@@ -103,7 +126,10 @@ func TestUser_IsAuthorized_MalformedCredentials(t *testing.T) {
 	user := User{username: "edward", password: "p0nyta1l"}
 	authentication := "Basic " + base64.StdEncoding.EncodeToString([]byte("edward p0nytail"))
 
-	if _, err := user.IsAuthorized(authentication); err != errMalformedUsernamePassword {
+	r := new(http.Request)
+	r.Header = make(http.Header)
+	r.Header.Set("Authorization", authentication)
+	if _, err := user.IsAuthorized(r); err != errMalformedUsernamePassword {
 		t.Errorf("wanted %v, but got %v", errMalformedUsernamePassword, err)
 	}
 }
@@ -115,7 +141,10 @@ func TestUser_IsAuthorized_BadCredentials(t *testing.T) {
 	user := User{username: "edward", password: "p0nyta1l"}
 	authentication := "Basic " + base64.StdEncoding.EncodeToString([]byte("al:m3t@l"))
 
-	if _, err := user.IsAuthorized(authentication); err != errFailedAuth {
+	r := new(http.Request)
+	r.Header = make(http.Header)
+	r.Header.Set("Authorization", authentication)
+	if _, err := user.IsAuthorized(r); err != errFailedAuth {
 		t.Errorf("wanted %v, but got %v", errFailedAuth, err)
 	}
 }
@@ -141,7 +170,10 @@ func TestUser_IsAuthorized_ValidCredentials(t *testing.T) {
 			[]byte(row.username+":"+row.password),
 		)
 
-		if username, err := user.IsAuthorized(auth); err != nil {
+		r := new(http.Request)
+		r.Header = make(http.Header)
+		r.Header.Set("Authorization", auth)
+		if username, err := user.IsAuthorized(r); err != nil {
 			t.Errorf("wanted %v, but got %v", nil, err)
 		} else if username != row.username {
 			t.Errorf("wanted %v, but got %v", row.username, username)
@@ -170,6 +202,7 @@ func TestUser_FailureHandler_Panics(t *testing.T) {
 
 	rw := NewMockResponseWriter()
 	r := new(http.Request)
+	r.Header = make(http.Header)
 
 	rw.ForceErrOnWrite = true
 
@@ -190,6 +223,7 @@ func TestUser_FailureHandler_Success(t *testing.T) {
 
 	rw := NewMockResponseWriter()
 	r := new(http.Request)
+	r.Header = make(http.Header)
 
 	handler.ServeHTTP(rw, r)
 

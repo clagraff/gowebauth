@@ -1,5 +1,12 @@
 package gowebauth
 
+import (
+	"bytes"
+	"encoding/base64"
+	"net/http"
+	"strings"
+)
+
 /*
 MIT License
 
@@ -24,17 +31,10 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
-import (
-	"bytes"
-	"encoding/base64"
-	"net/http"
-	"strings"
-)
-
 // Realm represents a collection of `Users` for a given HTTP Basic Auth realm.
 type Realm struct {
 	Charset string
-	Realm   string
+	Name    string
 	users   map[string]string
 }
 
@@ -46,7 +46,7 @@ type Realm struct {
 func MakeRealm(realm string, users []User) (Realm, error) {
 	auth := Realm{
 		Charset: "utf-8",
-		Realm:   realm,
+		Name:    realm,
 		users:   make(map[string]string),
 	}
 
@@ -67,7 +67,12 @@ func MakeRealm(realm string, users []User) (Realm, error) {
 // IsAuthorized checks the authorization string for a correct scheme &
 // matching username and password for any of the users existing in the current
 // realm.
-func (realm Realm) IsAuthorized(authorization string) (string, error) {
+func (realm Realm) IsAuthorized(r *http.Request) (string, error) {
+	authorization := r.Header.Get("Authorization")
+	if len(authorization) <= 0 {
+		return "", errMalformedHeader
+	}
+
 	authParts := strings.Split(authorization, " ")
 	if len(authParts) != 2 {
 		return "", errMalformedHeader
@@ -108,42 +113,22 @@ func (realm Realm) IsAuthorized(authorization string) (string, error) {
 func (realm Realm) FailureHandler(authErr error) http.Handler {
 	fn := func(w http.ResponseWriter, r *http.Request) {
 		buff := bytes.NewBufferString("Basic")
-		_, err := buff.WriteString(" realm=\"")
-		if err != nil {
-			panic(err)
+		buff.WriteString(" realm=\"")
+
+		if len(realm.Name) > 0 {
+			buff.WriteString(realm.Name)
 		}
 
-		if len(realm.Realm) > 0 {
-			_, err = buff.WriteString(realm.Realm)
-			if err != nil {
-				panic(err)
-			}
-		}
-
-		_, err = buff.WriteString("\"")
-		if err != nil {
-			panic(err)
-		}
+		buff.WriteString("\"")
 
 		charset := "utf-8"
 		if len(realm.Charset) > 0 {
 			charset = realm.Charset
 		}
 
-		_, err = buff.WriteString(" charset=\"")
-		if err != nil {
-			panic(err)
-		}
-
-		_, err = buff.WriteString(charset)
-		if err != nil {
-			panic(err)
-		}
-
-		_, err = buff.WriteString("\"")
-		if err != nil {
-			panic(err)
-		}
+		buff.WriteString(" charset=\"")
+		buff.WriteString(charset)
+		buff.WriteString("\"")
 
 		headerMap := w.Header()
 		headerMap.Set("WWW-Authenticate", buff.String())
@@ -151,7 +136,7 @@ func (realm Realm) FailureHandler(authErr error) http.Handler {
 		errMsg := []byte(authErr.Error())
 
 		w.WriteHeader(401)
-		_, err = w.Write(errMsg)
+		_, err := w.Write(errMsg)
 		if err != nil {
 			panic(err)
 		}

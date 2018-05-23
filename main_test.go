@@ -72,7 +72,7 @@ func NewMockResponseWriter() *mockResponseWriter {
 // the returned `http.Handler` function when given an authentication error.
 func TestMiddleware_AuthError(t *testing.T) {
 	authErr := errFailedAuth
-	realm := Realm{Realm: "Restricted", Charset: "utf-8", users: map[string]string{"gon": "hunter1"}}
+	realm := Realm{Name: "Restricted", Charset: "utf-8", users: map[string]string{"gon": "hunter1"}}
 
 	auth := "Basic " + base64.StdEncoding.EncodeToString([]byte("wrong:creds"))
 
@@ -109,7 +109,7 @@ func TestMiddleware_AuthError(t *testing.T) {
 // TestMiddleware_ValidAuth tests that a proper response is generated from
 // the returned `http.Handler` function when no authentication error occurs.
 func TestMiddleware_ValidAuth(t *testing.T) {
-	realm := Realm{Realm: "Restricted", Charset: "utf-8", users: map[string]string{"gon": "hunter1"}}
+	realm := Realm{Name: "Restricted", Charset: "utf-8", users: map[string]string{"gon": "hunter1"}}
 
 	auth := "Basic " + base64.StdEncoding.EncodeToString([]byte("gon:hunter1"))
 
@@ -143,7 +143,7 @@ func TestMiddleware_ValidAuth(t *testing.T) {
 // TestMiddleware_MissingAuth tests that a proper response is generated from
 // the returned `http.Handler` function when no authentication is present.
 func TestMiddleware_MissingAuth(t *testing.T) {
-	realm := Realm{Realm: "Restricted", Charset: "utf-8", users: map[string]string{"gon": "hunter1"}}
+	realm := Realm{Name: "Restricted", Charset: "utf-8", users: map[string]string{"gon": "hunter1"}}
 
 	rw := NewMockResponseWriter()
 	r := new(http.Request)
@@ -178,7 +178,7 @@ func TestHandle(t *testing.T) {
 // the returned `http.Handler` function when given an authentication error.
 func TestHandlerFunc_AuthError(t *testing.T) {
 	authErr := errFailedAuth
-	realm := Realm{Realm: "Restricted", Charset: "utf-8", users: map[string]string{"gon": "hunter1"}}
+	realm := Realm{Name: "Restricted", Charset: "utf-8", users: map[string]string{"gon": "hunter1"}}
 
 	auth := "Basic " + base64.StdEncoding.EncodeToString([]byte("wrong:creds"))
 
@@ -209,7 +209,7 @@ func TestHandlerFunc_AuthError(t *testing.T) {
 // TestMiddleware_ValidAuth tests that a proper response is generated from
 // the returned `http.Handler` function when no authentication error occurs.
 func TestHandlerFunc_ValidAuth(t *testing.T) {
-	realm := Realm{Realm: "Restricted", Charset: "utf-8", users: map[string]string{"gon": "hunter1"}}
+	realm := Realm{Name: "Restricted", Charset: "utf-8", users: map[string]string{"gon": "hunter1"}}
 
 	auth := "Basic " + base64.StdEncoding.EncodeToString([]byte("gon:hunter1"))
 
@@ -237,7 +237,7 @@ func TestHandlerFunc_ValidAuth(t *testing.T) {
 // TestHandlerFunc_MissingAuth tests that a proper response is generated from
 // the returned `http.Handler` function when no authentication is present.
 func TestHandlerFunc_MissingAuth(t *testing.T) {
-	realm := Realm{Realm: "Restricted", Charset: "utf-8", users: map[string]string{"gon": "hunter1"}}
+	realm := Realm{Name: "Restricted", Charset: "utf-8", users: map[string]string{"gon": "hunter1"}}
 
 	rw := NewMockResponseWriter()
 	r := new(http.Request)

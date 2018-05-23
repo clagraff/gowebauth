@@ -76,8 +76,8 @@ func TestMakeRealm_UniqueUsers(t *testing.T) {
 		t.Errorf("expected %v, but got %v", nil, err)
 	}
 
-	if realm.Realm != realmName {
-		t.Errorf("expected %v, but got %v", realmName, realm.Realm)
+	if realm.Name != realmName {
+		t.Errorf("expected %v, but got %v", realmName, realm.Name)
 	}
 
 	defaultCharset := "utf-8"
@@ -115,7 +115,10 @@ func TestRealm_IsAuthorized(t *testing.T) {
 	}
 
 	for index, row := range table {
-		_, err := realm.IsAuthorized(row.authentication)
+		r := new(http.Request)
+		r.Header = make(http.Header)
+		r.Header.Set("Authorization", row.authentication)
+		_, err := realm.IsAuthorized(r)
 		if err != row.err {
 			t.Errorf("for case %d: wanted %v, but got %v", index, row.err, err)
 		}
@@ -133,7 +136,7 @@ func TestRealm_FailureHandler_Panics(t *testing.T) {
 	}(t)
 
 	authErr := errFailedAuth
-	realm := Realm{Realm: "Restricted", Charset: "utf-8", users: map[string]string{"gon": "hunter1"}}
+	realm := Realm{Name: "Restricted", Charset: "utf-8", users: map[string]string{"gon": "hunter1"}}
 
 	handler := realm.FailureHandler(authErr)
 	if handler == nil {
@@ -153,7 +156,7 @@ func TestRealm_FailureHandler_Panics(t *testing.T) {
 // the returned `http.Handler` function when given an authentication error.
 func TestRealm_FailureHandler_Success(t *testing.T) {
 	authErr := errFailedAuth
-	realm := Realm{Realm: "Restricted", Charset: "utf-8", users: map[string]string{"gon": "hunter1"}}
+	realm := Realm{Name: "Restricted", Charset: "utf-8", users: map[string]string{"gon": "hunter1"}}
 
 	handler := realm.FailureHandler(authErr)
 	if handler == nil {

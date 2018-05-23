@@ -30,7 +30,6 @@ import (
 	"net/http"
 )
 
-var errMissingHeader = errors.New("missing authorization header")
 var errMalformedHeader = errors.New("malformed authorizationheader")
 var errBadScheme = errors.New("unsupported/missing authorization header scheme")
 var errBase64DecodeFailed = errors.New(
@@ -51,7 +50,7 @@ var ContextKey = contextKey("Identity")
 // Authorizer specifies an interface which enables performing authentication
 // checks and providing an HTTP failure handler.
 type Authorizer interface {
-	IsAuthorized(string) (string, error)
+	IsAuthorized(*http.Request) (string, error)
 	FailureHandler(error) http.Handler
 }
 
@@ -62,13 +61,7 @@ type Authorizer interface {
 func Middleware(auth Authorizer) func(http.Handler) http.Handler {
 	outter := func(next http.Handler) http.Handler {
 		inner := func(w http.ResponseWriter, r *http.Request) {
-			authHeader := r.Header.Get("Authorization")
-			if len(authHeader) <= 0 {
-				auth.FailureHandler(errMissingHeader).ServeHTTP(w, r)
-				return
-			}
-
-			identifier, err := auth.IsAuthorized(authHeader)
+			identifier, err := auth.IsAuthorized(r)
 
 			if err != nil {
 				auth.FailureHandler(err).ServeHTTP(w, r)
@@ -109,13 +102,7 @@ func HandlerFunc(
 	fn func(http.ResponseWriter, *http.Request),
 ) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		authHeader := r.Header.Get("Authorization")
-		if len(authHeader) <= 0 {
-			auth.FailureHandler(errMissingHeader).ServeHTTP(w, r)
-			return
-		}
-
-		identifier, err := auth.IsAuthorized(authHeader)
+		identifier, err := auth.IsAuthorized(r)
 
 		if err != nil {
 			auth.FailureHandler(err).ServeHTTP(w, r)
