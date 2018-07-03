@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"testing"
+	"time"
 )
 
 /*
@@ -128,6 +129,211 @@ func TestOneUseStore_Generate_Valid(t *testing.T) {
 
 	if string(nonce) == "" {
 		t.Errorf("wanted a non-empty nonce, but got %v", nonce)
+	}
+}
+
+// TestMakeTimeStore tests to ensure that a new TimeStore is instantiated
+// correctly.
+func TestMakeTimeStore(t *testing.T) {
+	lifetime := time.Second * 3
+	cacheDuration := time.Second * 7
+
+	store := MakeTimeStore(lifetime, cacheDuration)
+
+	if store.cache == nil {
+		t.Errorf("internal cache must not be nil")
+	}
+
+	if store.lifetime != lifetime {
+		t.Errorf("wanted %v, but got %v", lifetime, store.lifetime)
+	}
+
+	if store.cacheDuration != cacheDuration {
+		t.Errorf("wanted %v, but got %v", cacheDuration, store.cacheDuration)
+	}
+}
+
+// TestTimeStore_Verify_ValidNonce tests that a correct nonce can be validated
+// correctly against a populated TimeStore.
+func TestTimeStore(t *testing.T) {
+	validNonce := Nonce("thisIsMyNonce")
+
+	lifetime := time.Second * 3
+	cacheDuration := time.Second * 7
+
+	store := MakeTimeStore(lifetime, cacheDuration)
+	store.cache.Store(validNonce, time.Now().UTC().Add(lifetime))
+
+	actual := store.Verify(validNonce)
+
+	if actual != nil {
+		t.Errorf("wanted %v, but got %v", nil, actual)
+	}
+}
+
+// TestTimeStore_Verify_InvalidNonce tests that an error is returned when
+// attempting to validate a nonce that does not exist within the store.
+func TestTimeStore_Verify_InvalidNonce(t *testing.T) {
+	invalidNonce := Nonce("thisIsMyNonce")
+
+	lifetime := time.Second * 3
+	cacheDuration := time.Second * 4
+
+	store := MakeTimeStore(lifetime, cacheDuration)
+	actual := store.Verify(invalidNonce)
+
+	if actual == nil {
+		t.Errorf("wanted an error, but got %v", nil)
+	}
+}
+
+// TestTimeStore_Verify_ExpiredNonce tests that an error is returned when
+// attempting to validate a nonce that has been expired.
+func TestTimeStore_Verify_ExpiredNonce(t *testing.T) {
+	expiredNonce := Nonce("thisIsMyNonce")
+
+	lifetime := time.Second * 3
+	cacheDuration := time.Second * 4
+
+	store := MakeTimeStore(lifetime, cacheDuration)
+	store.cache.Store(expiredNonce, time.Now().UTC().Add(-1*time.Second))
+
+	actual := store.Verify(expiredNonce)
+
+	if actual == nil {
+		t.Errorf("wanted an error, but got %v", nil)
+	}
+}
+
+// TestTimeStore_Verify_NilCache tests that an error is returned when
+// attempting to validate a nonce when the store's cache has not been
+// initialized.
+func TestTimeStore_Verify_NilCache(t *testing.T) {
+	nonce := Nonce("thisIsMyNonce")
+
+	store := TimeStore{}
+	actual := store.Verify(nonce)
+
+	if actual == nil {
+		t.Errorf("wanted an error, but got %v", nil)
+	}
+}
+
+// TestTimeStore_Generate_NilCache tests that an error is returned when
+// attempting to generate a nonce when the store's cache has not been
+// initialized.
+func TestTimeStore_Generate_NilCache(t *testing.T) {
+	store := TimeStore{}
+	nonce, err := store.Generate()
+
+	if err == nil {
+		t.Errorf("wanted an error, but got %v", nil)
+	}
+
+	if string(nonce) != "" {
+		t.Errorf("wanted %v, but got %v", "", nonce)
+	}
+}
+
+// TestTimeStore_Generate_Valid tests that a nonce value and no error
+// is returned from an properly initialized OneUseStore.
+func TestTimeStore_Generate_Valid(t *testing.T) {
+	lifetime := time.Second * 3
+	cacheDuration := time.Second * 7
+
+	store := MakeTimeStore(lifetime, cacheDuration)
+	nonce, err := store.Generate()
+
+	if err != nil {
+		t.Errorf("wanted %v, but got %v", nil, err)
+	}
+
+	if string(nonce) == "" {
+		t.Errorf("wanted a non-empty nonce, but got %v", nonce)
+	}
+}
+
+// TestTimeStore_Refresh tests that expired stored nonces are removed from
+// the cache, while all other nonces are left unchanged.
+func TestTimeStore_Refresh(t *testing.T) {
+	lifetime := time.Second * 9
+	cacheDuration := time.Second * 14
+	store := MakeTimeStore(lifetime, cacheDuration)
+
+	validNonces := make([]Nonce, 3)
+	expiredNonces := make([]Nonce, 7)
+
+	for i := range validNonces {
+		var err error
+
+		validNonces[i], err = store.Generate()
+		if err != nil {
+			panic(err)
+		}
+	}
+
+	for i := range expiredNonces {
+		nonce := MakeNonce()
+		expiredNonces[i] = nonce
+
+		store.cache.Store(nonce, time.Now().UTC().Add(-1*time.Second))
+	}
+
+	store.Refresh()
+
+	for _, nonce := range validNonces {
+		if _, ok := store.cache.Load(nonce); !ok {
+			t.Errorf("wanted %v, but could not be retrieved", nonce)
+		}
+	}
+
+	for _, nonce := range expiredNonces {
+		if _, ok := store.cache.Load(nonce); ok {
+			t.Errorf("must not be able to retrieve nonce %v", nonce)
+		}
+	}
+}
+
+// TestTimeStore_AutoRefresh tests that expired stored nonces are removed from
+// the cache, while all other nonces are left unchanged.
+func TestTimeStore_AutoRefresh(t *testing.T) {
+	lifetime := time.Second * 5
+	cacheDuration := time.Millisecond * 10
+	store := MakeTimeStore(lifetime, cacheDuration)
+
+	validNonces := make([]Nonce, 3)
+	expiredNonces := make([]Nonce, 7)
+
+	for i := range validNonces {
+		var err error
+
+		validNonces[i], err = store.Generate()
+		if err != nil {
+			panic(err)
+		}
+	}
+
+	for i := range expiredNonces {
+		nonce := MakeNonce()
+		expiredNonces[i] = nonce
+
+		store.cache.Store(nonce, time.Now().UTC().Add(-5*time.Second))
+	}
+
+	stop := store.AutoRefresh()
+	defer stop()
+	time.Sleep(time.Second) // Wait long enough for autorefresh to occur
+
+	for _, nonce := range validNonces {
+		if _, ok := store.cache.Load(nonce); !ok {
+			t.Errorf("wanted %v, but could not be retrieved", nonce)
+		}
+	}
+
+	for _, nonce := range expiredNonces {
+		if _, ok := store.cache.Load(nonce); ok {
+			t.Errorf("must not be able to retrieve nonce %v", nonce)
+		}
 	}
 }
 

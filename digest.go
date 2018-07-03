@@ -40,9 +40,10 @@ const nonceKeyLength = 4
 // Nonce represents a limited-user string token provided by the server.
 type Nonce string
 
+var src = rand.NewSource(time.Now().Unix())
+
 // MakeNonce creates a new nonce of random characters.
 func MakeNonce() Nonce {
-	src := rand.NewSource(time.Now().Unix())
 	rnd := rand.New(src)
 	keys := make([]byte, nonceKeyLength)
 	rnd.Read(keys)
@@ -97,6 +98,94 @@ func (store OneUseStore) Generate() (Nonce, error) {
 
 	n := MakeNonce()
 	store.cache.Store(n, true)
+
+	return n, nil
+}
+
+// TimeStore is an implementation of a NonceStore, where genereated nonces
+// can only be validated for a specified period of time before being discarded.
+// Subsequent verification attempts with an expired nonce results in an error.
+type TimeStore struct {
+	cache         *sync.Map
+	lifetime      time.Duration
+	cacheDuration time.Duration
+}
+
+// MakeTimeStore returns an instantiated TimeStore instance. The lifetime
+// argument determines how long a nonce will remain valid for.
+func MakeTimeStore(lifetime, cacheDuration time.Duration) TimeStore {
+	return TimeStore{
+		cache:         new(sync.Map),
+		lifetime:      lifetime,
+		cacheDuration: cacheDuration,
+	}
+}
+
+// Refresh will invalidate and remove all expired nonces from the store. This
+// should periodically be called to prevent uncontrolled memory usage from
+// creating but not expiring old nonces.
+func (store TimeStore) Refresh() {
+	now := time.Now().UTC()
+
+	clear := func(key, value interface{}) bool {
+		if value.(time.Time).Before(now) {
+			store.cache.Delete(key)
+		}
+		return true
+	}
+	store.cache.Range(clear)
+}
+
+// AutoRefresh is an alternative to Refresh, which will automatiaclly
+// invalidate and remove all expired nonces. It runs concurrantly, but can
+// be stopped by calling the returned function.
+func (store TimeStore) AutoRefresh() func() {
+	ticker := time.NewTicker(store.cacheDuration)
+	stop := ticker.Stop
+
+	go func(s TimeStore, t *time.Ticker) {
+		for range t.C {
+			s.Refresh()
+		}
+	}(store, ticker)
+
+	return stop
+}
+
+// Verify will check if the provided nonce currently exists in the store and
+// has not expired.
+// If the nonce is expired, it is removed from the store completely and an
+// error is returned. If no nonce can be found, an error is returned.
+func (store TimeStore) Verify(token Nonce) error {
+	if store.cache == nil {
+		return errors.New("store not properly initialized")
+	}
+
+	nonce, ok := store.cache.Load(token)
+	if !ok {
+		return errors.New("invalid nonce value")
+	}
+
+	if nonce.(time.Time).Before(time.Now().UTC()) {
+		store.cache.Delete(token)
+		return errors.New("expired nonce")
+	}
+
+	return nil
+}
+
+// Generate will create a new time-limited nonce and keep it in the store until
+// it is later verified.
+func (store TimeStore) Generate() (Nonce, error) {
+	if store.cache == nil {
+		return Nonce(""), errors.New("store not properly initialized")
+	}
+
+	now := time.Now().UTC()
+	n := MakeNonce()
+	lifetime := now.Add(store.lifetime)
+
+	store.cache.Store(n, lifetime)
 
 	return n, nil
 }
