@@ -35,6 +35,8 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
+// nolint: gosec
+
 const nonceKeyLength = 4
 
 // Nonce represents a limited-user string token provided by the server.
