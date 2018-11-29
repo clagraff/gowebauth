@@ -132,6 +132,108 @@ func TestOneUseStore_Generate_Valid(t *testing.T) {
 	}
 }
 
+// TestMakeLimitedUseStore tests to ensure that a new LimitedUseStore is
+// instantiated correctly.
+func TestMakeLimitedUseStore(t *testing.T) {
+	usageLimit := 5
+	store := MakeLimitedUseStore(usageLimit)
+
+	if store.cache == nil {
+		t.Errorf("internal cache must not be nil")
+	}
+
+	if store.usageLimit != usageLimit {
+		t.Errorf("wanted: %v, but got %v", usageLimit, store.usageLimit)
+	}
+}
+
+// TestLimitedUseStore_Verify_ValidNonce tests that a correct nonce can be
+// validated correctly against a populated LimitedUseStore.
+// A subsequent call after all uses have been depleted should return an
+// error as the nonce should no longer be available.
+func TestLimitedUseStore_Verify_ValidNonce(t *testing.T) {
+	validNonce := Nonce("thisIsMyNonce")
+
+	usageLimit := 5
+	store := MakeLimitedUseStore(usageLimit)
+	store.cache.Store(validNonce, usageLimit)
+
+	for i := 0; i < usageLimit; i++ {
+		actual := store.Verify(validNonce)
+
+		if actual != nil {
+			t.Errorf("for index %v, wanted %v, but got %v", i, nil, actual)
+		}
+	}
+
+	// Test that the none is no long valid
+	actual := store.Verify(validNonce)
+	if actual == nil {
+		t.Errorf("wanted an error, but got %v", nil)
+	}
+}
+
+// TestLimitedUseStore_Verify_InvalidNonce tests that an occur is returned when
+// attempting to validate a nonce that does not exist within the store.
+func TestLimitedUseStore_Verify_InvalidNonce(t *testing.T) {
+	invalidNonce := Nonce("thisIsMyNonce")
+
+	usageLimit := 5
+	store := MakeLimitedUseStore(usageLimit)
+
+	actual := store.Verify(invalidNonce)
+
+	if actual == nil {
+		t.Errorf("wanted an error, but got %v", nil)
+	}
+}
+
+// TestLimitedUseStore_Verify_NilCache tests that an occur is returned when
+// attempting to validate a nonce when the store's cache has not been
+// initialized.
+func TestLimitedUseStore_Verify_NilCache(t *testing.T) {
+	invalidNonce := Nonce("thisIsMyNonce")
+
+	store := LimitedUseStore{}
+	actual := store.Verify(invalidNonce)
+
+	if actual == nil {
+		t.Errorf("wanted an error, but got %v", nil)
+	}
+}
+
+// TestLimitedUseStore_Generate_NilCache tests that an occur is returned when
+// attempting to generate a nonce when the store's cache has not been
+// initialized.
+func TestLimitedUseStore_Generate_NilCache(t *testing.T) {
+	store := LimitedUseStore{}
+	nonce, err := store.Generate()
+
+	if err == nil {
+		t.Errorf("wanted an error, but got %v", nil)
+	}
+
+	if string(nonce) != "" {
+		t.Errorf("wanted %v, but got %v", "", nonce)
+	}
+}
+
+// TestLimitedUseStore_Generate_Valid tests that an a nonce value and no error
+// is returned from an properly initialized OneUseStore.
+func TestLimitedUseStore_Generate_Valid(t *testing.T) {
+	usageLimit := 5
+	store := MakeLimitedUseStore(usageLimit)
+	nonce, err := store.Generate()
+
+	if err != nil {
+		t.Errorf("wanted %v, but got %v", nil, err)
+	}
+
+	if string(nonce) == "" {
+		t.Errorf("wanted a non-empty nonce, but got %v", nonce)
+	}
+}
+
 // TestMakeTimeStore tests to ensure that a new TimeStore is instantiated
 // correctly.
 func TestMakeTimeStore(t *testing.T) {

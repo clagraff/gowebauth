@@ -102,6 +102,59 @@ func (store OneUseStore) Generate() (Nonce, error) {
 	return n, nil
 }
 
+// LimitedUseStore is an implementation of a NonceStore, where genereated nonces
+// can only be validated N number of times before being discarded.
+// Subsequent verification attempts with a spent nonce results in an error.
+type LimitedUseStore struct {
+	cache      *sync.Map
+	usageLimit int
+}
+
+// MakeLimitedUseStore returns an instantiated LimitedUseStore instance.
+func MakeLimitedUseStore(usageLimit int) LimitedUseStore {
+	return LimitedUseStore{
+		cache:      new(sync.Map),
+		usageLimit: usageLimit,
+	}
+}
+
+// Verify will check if the provided nonce currently exists in the store.
+// If it does, decrease it's remaining usage amount; remove it if no more
+// usages are available, thus preventing subsequent usages of it.
+// Otherwise return an error if usage is no longer allowed or the nonce is not
+// in the store.
+func (store LimitedUseStore) Verify(token Nonce) error {
+	if store.cache == nil {
+		return errors.New("store not properly initialized")
+	}
+
+	remainingUses, ok := store.cache.Load(token)
+	if !ok {
+		return errors.New("invalid nonce value")
+	}
+
+	if amount, ok := remainingUses.(int); !ok || amount <= 1 {
+		store.cache.Delete(token)
+	} else {
+		store.cache.Store(token, amount-1)
+	}
+
+	return nil
+}
+
+// Generate will create a new limited-usage nonce and keep it in the store until
+// it is later verified.
+func (store LimitedUseStore) Generate() (Nonce, error) {
+	if store.cache == nil {
+		return Nonce(""), errors.New("store not properly initialized")
+	}
+
+	n := MakeNonce()
+	store.cache.Store(n, store.usageLimit)
+
+	return n, nil
+}
+
 // TimeStore is an implementation of a NonceStore, where genereated nonces
 // can only be validated for a specified period of time before being discarded.
 // Subsequent verification attempts with an expired nonce results in an error.
