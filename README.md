@@ -190,7 +190,7 @@ malformed authorizationheader
 ```
 
 ```bash
-$ echo -n "gon:Restricted Page:hunter123" | md5sum<Paste>
+$ echo -n "gon:Restricted Page:hunter123" | md5sum
 f6def3aaf5ce8c891e4f74a95fcbf0a1  -
 $ echo -n "GET:/private" | md5sum
 fda2c070587e883e75df51c06f6c70d2  -
