@@ -1,7 +1,7 @@
 package gowebauth
 
 import (
-	"crypto/md5" // nolint: gas
+	"crypto/md5" // nolint: gosec
 	"errors"
 	"fmt"
 	"math/rand"
@@ -35,8 +35,6 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
-// nolint: gosec
-
 const nonceKeyLength = 4
 
 // Nonce represents a limited-user string token provided by the server.
@@ -48,7 +46,10 @@ var src = rand.NewSource(time.Now().Unix())
 func MakeNonce() Nonce {
 	rnd := rand.New(src)
 	keys := make([]byte, nonceKeyLength)
-	rnd.Read(keys)
+	_, err := rnd.Read(keys)
+	if err != nil {
+		panic(err)
+	}
 
 	token := fmt.Sprintf("%x", keys)
 
@@ -251,7 +252,7 @@ func md5HashParts(parts ...string) string {
 }
 
 func md5Hash(data string) string {
-	return fmt.Sprintf("%x", md5.Sum([]byte(data))) // nolint: gas
+	return fmt.Sprintf("%x", md5.Sum([]byte(data))) // nolint: gosec
 }
 
 // Digest represents a new HTTP Digest Authentication manager.

@@ -113,22 +113,42 @@ func (realm Realm) IsAuthorized(r *http.Request) (string, error) {
 func (realm Realm) FailureHandler(authErr error) http.Handler {
 	fn := func(w http.ResponseWriter, r *http.Request) {
 		buff := bytes.NewBufferString("Basic")
-		buff.WriteString(" realm=\"")
-
-		if len(realm.Name) > 0 {
-			buff.WriteString(realm.Name)
+		_, err := buff.WriteString(" realm=\"")
+		if err != nil {
+			panic(err)
 		}
 
-		buff.WriteString("\"")
+		if len(realm.Name) > 0 {
+			_, err = buff.WriteString(realm.Name)
+			if err != nil {
+				panic(err)
+			}
+		}
+
+		_, err = buff.WriteString("\"")
+		if err != nil {
+			panic(err)
+		}
 
 		charset := "utf-8"
 		if len(realm.Charset) > 0 {
 			charset = realm.Charset
 		}
 
-		buff.WriteString(" charset=\"")
-		buff.WriteString(charset)
-		buff.WriteString("\"")
+		_, err = buff.WriteString(" charset=\"")
+		if err != nil {
+			panic(err)
+		}
+
+		_, err = buff.WriteString(charset)
+		if err != nil {
+			panic(err)
+		}
+
+		_, err = buff.WriteString("\"")
+		if err != nil {
+			panic(err)
+		}
 
 		headerMap := w.Header()
 		headerMap.Set("WWW-Authenticate", buff.String())
@@ -136,7 +156,7 @@ func (realm Realm) FailureHandler(authErr error) http.Handler {
 		errMsg := []byte(authErr.Error())
 
 		w.WriteHeader(401)
-		_, err := w.Write(errMsg)
+		_, err = w.Write(errMsg)
 		if err != nil {
 			panic(err)
 		}
