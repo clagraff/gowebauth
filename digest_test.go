@@ -537,6 +537,61 @@ func TestMakeDigest(t *testing.T) {
 	}
 }
 
+// TestDigest_FailureHandler tests that a proper response is generated from the
+// returned `hhtp.Handler` function when given an authentication error.
+func TestDigest_FailureHandler(t *testing.T) {
+	store := MakeOneUseStore()
+	user := MakeUser("Mufasa", "Circle Of Life")
+	realm, err := MakeRealm("testrealm@host.com", []User{user})
+	if err != nil {
+		panic(err)
+	}
+	digest := MakeDigest(realm, store)
+
+	handler := digest.FailureHandler(errFailedAuth)
+	if handler == nil {
+		t.Errorf("wanted http.Handler, but got nil")
+	}
+
+	rw := NewMockResponseWriter()
+	r := new(http.Request)
+
+	handler.ServeHTTP(rw, r)
+	if rw.Status != 401 {
+		t.Errorf("wanted status code 401, but got %v", rw.Status)
+	}
+
+	if value, ok := rw.Headers["Www-Authenticate"]; !ok {
+		t.Errorf("wanted Www-Authenticate in headers, but it was not present")
+	} else {
+		var storedNonce Nonce
+		store.cache.Range(func(k, v interface{}) bool {
+			storedNonce = k.(Nonce)
+			return false
+		})
+
+		authorization := fmt.Sprintf(
+			`Digest realm="%s" charset="%s" nonce="%s"`,
+			realm.Name,
+			realm.Charset,
+			storedNonce,
+		)
+
+		if len(value) != 1 {
+			t.Errorf("wanted Www-Authorization, but got nothing")
+		}
+
+		actualAuthorization := value[0]
+		if authorization != actualAuthorization {
+			t.Errorf(
+				"wanted: %v but got %v",
+				authorization,
+				actualAuthorization,
+			)
+		}
+	}
+}
+
 // TestDigest_IsAuthorized_Valid tests to that a valid digest authorization
 // results in returning the username and no error.
 func TestDigest_IsAuthorized_Valid(t *testing.T) {

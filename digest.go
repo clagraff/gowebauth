@@ -445,7 +445,7 @@ func (digest Digest) FailureHandler(authErr error) http.Handler {
 		}
 
 		authenticate := fmt.Sprintf(
-			`Basic realm="%s" charset="%s" nonce="%s"`,
+			`Digest realm="%s" charset="%s" nonce="%s"`,
 			digest.realm.Name,
 			digest.realm.Charset,
 			nonce,
