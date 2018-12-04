@@ -3,6 +3,7 @@
 [![CircleCI](https://circleci.com/gh/clagraff/gowebauth/tree/master.svg?style=svg)](https://circleci.com/gh/clagraff/gowebauth/tree/master)
 [![GoDoc](https://godoc.org/github.com/clagraff/gowebauth?status.svg)](https://godoc.org/github.com/clagraff/gowebauth)
 [![Go Report Card](http://goreportcard.com/badge/clagraff/gowebauth)](http://goreportcard.com/report/clagraff/gowebauth)
+[![cover.run](https://cover.run/go/github.com/clagraff/gowebauth.svg?style=flat&tag=golang-1.10)](https://cover.run/go?tag=golang-1.10&repo=github.com%2Fclagraff%2Fgowebauth)
 
 # GO Web Auth
 Go library for providing middleware for HTTP auth schemes.
