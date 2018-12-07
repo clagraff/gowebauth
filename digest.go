@@ -42,8 +42,8 @@ type Nonce string
 
 var src = rand.NewSource(time.Now().Unix())
 
-// MakeNonce creates a new nonce of random characters.
-func MakeNonce() Nonce {
+// makeNonce creates a new nonce of random characters.
+func makeNonce() Nonce {
 	rnd := rand.New(src)
 	keys := make([]byte, nonceKeyLength)
 	_, err := rnd.Read(keys)
@@ -56,192 +56,110 @@ func MakeNonce() Nonce {
 	return Nonce(token)
 }
 
-// NonceStore is an interface for providing new nonces and validating existing
-// nonce.
-type NonceStore interface {
-	Verify(Nonce) error
-	Generate() (Nonce, error)
+type nonceEnvelope struct {
+	token         Nonce
+	validUntil    time.Time
+	remainingUses int
 }
 
-// OneUseStore is an implementation of a NonceStore, where genereated nonces
-// can only be validated once before being discarded.
-// Subsequent verification attempts with a spent nonce results in an error.
-type OneUseStore struct {
-	cache *sync.Map
-}
-
-// MakeOneUseStore returns an instantiated OneUseStore instance.
-func MakeOneUseStore() OneUseStore {
-	return OneUseStore{cache: new(sync.Map)}
-}
-
-// Verify will check if the provided nonce currently exists in the store.
-// If it does, remove it to prevent subsequent usages of it. Otherwise return
-// an error.
-func (store OneUseStore) Verify(token Nonce) error {
-	if store.cache == nil {
-		return errors.New("store not properly initialized")
-	}
-
-	_, ok := store.cache.Load(token)
-	if !ok {
-		return errors.New("invalid nonce value")
-	}
-
-	store.cache.Delete(token)
-	return nil
-}
-
-// Generate will create a new one-time nonce and keep it in the store until
-// it is later verified.
-func (store OneUseStore) Generate() (Nonce, error) {
-	if store.cache == nil {
-		return Nonce(""), errors.New("store not properly initialized")
-	}
-
-	n := MakeNonce()
-	store.cache.Store(n, true)
-
-	return n, nil
-}
-
-// LimitedUseStore is an implementation of a NonceStore, where genereated nonces
-// can only be validated N number of times before being discarded.
-// Subsequent verification attempts with a spent nonce results in an error.
-type LimitedUseStore struct {
-	cache      *sync.Map
-	usageLimit int
-}
-
-// MakeLimitedUseStore returns an instantiated LimitedUseStore instance.
-func MakeLimitedUseStore(usageLimit int) LimitedUseStore {
-	return LimitedUseStore{
-		cache:      new(sync.Map),
-		usageLimit: usageLimit,
-	}
-}
-
-// Verify will check if the provided nonce currently exists in the store.
-// If it does, decrease it's remaining usage amount; remove it if no more
-// usages are available, thus preventing subsequent usages of it.
-// Otherwise return an error if usage is no longer allowed or the nonce is not
-// in the store.
-func (store LimitedUseStore) Verify(token Nonce) error {
-	if store.cache == nil {
-		return errors.New("store not properly initialized")
-	}
-
-	remainingUses, ok := store.cache.Load(token)
-	if !ok {
-		return errors.New("invalid nonce value")
-	}
-
-	if amount, ok := remainingUses.(int); !ok || amount <= 1 {
-		store.cache.Delete(token)
-	} else {
-		store.cache.Store(token, amount-1)
-	}
-
-	return nil
-}
-
-// Generate will create a new limited-usage nonce and keep it in the store until
-// it is later verified.
-func (store LimitedUseStore) Generate() (Nonce, error) {
-	if store.cache == nil {
-		return Nonce(""), errors.New("store not properly initialized")
-	}
-
-	n := MakeNonce()
-	store.cache.Store(n, store.usageLimit)
-
-	return n, nil
-}
-
-// TimeStore is an implementation of a NonceStore, where genereated nonces
-// can only be validated for a specified period of time before being discarded.
-// Subsequent verification attempts with an expired nonce results in an error.
-type TimeStore struct {
+type nonceStore struct {
 	cache         *sync.Map
-	lifetime      time.Duration
-	cacheDuration time.Duration
+	cacheRefresh  time.Duration
+	nonceLifetime time.Duration
+	usageLimit    int
 }
 
-// MakeTimeStore returns an instantiated TimeStore instance. The lifetime
-// argument determines how long a nonce will remain valid for.
-func MakeTimeStore(lifetime, cacheDuration time.Duration) TimeStore {
-	return TimeStore{
+func makeNonceStore(
+	usageLimit int,
+	nonceLifetime,
+	cacheRefresh time.Duration,
+) nonceStore {
+	return nonceStore{
 		cache:         new(sync.Map),
-		lifetime:      lifetime,
-		cacheDuration: cacheDuration,
+		cacheRefresh:  cacheRefresh,
+		nonceLifetime: nonceLifetime,
+		usageLimit:    usageLimit,
 	}
 }
 
-// Refresh will invalidate and remove all expired nonces from the store. This
-// should periodically be called to prevent uncontrolled memory usage from
-// creating but not expiring old nonces.
-func (store TimeStore) Refresh() {
+func (store nonceStore) refresh() {
 	now := time.Now().UTC()
 
-	clear := func(key, value interface{}) bool {
-		if value.(time.Time).Before(now) {
+	fn := func(key, value interface{}) bool {
+		envelope := value.(nonceEnvelope)
+
+		if envelope.validUntil.Before(now) {
+			store.cache.Delete(key)
+		} else if envelope.remainingUses == 0 {
 			store.cache.Delete(key)
 		}
+
 		return true
 	}
-	store.cache.Range(clear)
+
+	store.cache.Range(fn)
 }
 
-// AutoRefresh is an alternative to Refresh, which will automatiaclly
-// invalidate and remove all expired nonces. It runs concurrantly, but can
-// be stopped by calling the returned function.
-func (store TimeStore) AutoRefresh() func() {
-	ticker := time.NewTicker(store.cacheDuration)
+func (store nonceStore) autoRefresh() func() {
+	ticker := time.NewTicker(store.cacheRefresh)
 	stop := ticker.Stop
 
-	go func(s TimeStore, t *time.Ticker) {
+	go func(s nonceStore, t *time.Ticker) {
 		for range t.C {
-			s.Refresh()
+			s.refresh()
 		}
 	}(store, ticker)
 
 	return stop
 }
 
-// Verify will check if the provided nonce currently exists in the store and
-// has not expired.
-// If the nonce is expired, it is removed from the store completely and an
-// error is returned. If no nonce can be found, an error is returned.
-func (store TimeStore) Verify(token Nonce) error {
+func (store nonceStore) verify(token Nonce) error {
 	if store.cache == nil {
 		return errors.New("store not properly initialized")
 	}
 
-	nonce, ok := store.cache.Load(token)
+	item, ok := store.cache.Load(token)
 	if !ok {
 		return errors.New("invalid nonce value")
 	}
 
-	if nonce.(time.Time).Before(time.Now().UTC()) {
+	envelope, ok := item.(nonceEnvelope)
+	if !ok {
+		return errors.New("invalid cache value")
+	}
+
+	if envelope.validUntil.Before(time.Now().UTC()) {
 		store.cache.Delete(token)
 		return errors.New("expired nonce")
 	}
 
+	if envelope.remainingUses <= 0 {
+		store.cache.Delete(token)
+		return errors.New("nonce used too many times")
+	}
+
+	envelope.remainingUses--
+
+	store.cache.Store(token, envelope)
+
 	return nil
 }
 
-// Generate will create a new time-limited nonce and keep it in the store until
-// it is later verified.
-func (store TimeStore) Generate() (Nonce, error) {
+func (store nonceStore) generate() (Nonce, error) {
 	if store.cache == nil {
 		return Nonce(""), errors.New("store not properly initialized")
 	}
 
 	now := time.Now().UTC()
-	n := MakeNonce()
-	lifetime := now.Add(store.lifetime)
+	n := makeNonce()
 
-	store.cache.Store(n, lifetime)
+	envelope := nonceEnvelope{
+		token:         n,
+		remainingUses: store.usageLimit,
+		validUntil:    now.Add(store.nonceLifetime),
+	}
+
+	store.cache.Store(n, envelope)
 
 	return n, nil
 }
@@ -258,11 +176,16 @@ func md5Hash(data string) string {
 // Digest represents a new HTTP Digest Authentication manager.
 type Digest struct {
 	realm Realm
-	store NonceStore
+	store nonceStore
 }
 
-// MakeDigest returns an instantiated Digest instance.
-func MakeDigest(realm Realm, store NonceStore) Digest {
+// MakeDigest returns an instantiated Digest instance. Specify how many times
+// a nonce can be used, and how long it will last. Expired nonces will
+// be cleaned up automatically.
+func MakeDigest(realm Realm, uses int, lifetime time.Duration) Digest {
+	store := makeNonceStore(uses, lifetime, lifetime/8)
+	go store.autoRefresh()
+
 	return Digest{
 		realm: realm,
 		store: store,
@@ -404,7 +327,7 @@ func (digest Digest) IsAuthorized(r *http.Request) (string, error) {
 		return "", errors.New("user not found")
 	}
 
-	err = digest.store.Verify(Nonce(response.nonce))
+	err = digest.store.verify(Nonce(response.nonce))
 	if err != nil {
 		return "", err
 	}
@@ -439,7 +362,7 @@ func (digest Digest) FailureHandler(authErr error) http.Handler {
 	fn := func(w http.ResponseWriter, r *http.Request) {
 		headerMap := w.Header()
 
-		nonce, err := digest.store.Generate()
+		nonce, err := digest.store.generate()
 		if err != nil {
 			panic(err)
 		}

@@ -125,6 +125,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"time"
 
 	"github.com/clagraff/gowebauth"
 	"github.com/nbari/violetear"
@@ -152,7 +153,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	digest := gowebauth.MakeDigest(realm, gowebauth.MakeOneUseStore())
+	digest := gowebauth.MakeDigest(realm, 15, 300*time.Second)
 
 	// Wrap route to require authentication.
 	privateRoute := gowebauth.Handle(digest, route)
