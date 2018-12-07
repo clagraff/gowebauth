@@ -37,13 +37,10 @@ SOFTWARE.
 
 const nonceKeyLength = 4
 
-// Nonce represents a limited-user string token provided by the server.
-type Nonce string
-
 var src = rand.NewSource(time.Now().Unix())
 
 // makeNonce creates a new nonce of random characters.
-func makeNonce() Nonce {
+func makeNonce() string {
 	rnd := rand.New(src)
 	keys := make([]byte, nonceKeyLength)
 	_, err := rnd.Read(keys)
@@ -53,11 +50,11 @@ func makeNonce() Nonce {
 
 	token := fmt.Sprintf("%x", keys)
 
-	return Nonce(token)
+	return token
 }
 
 type nonceEnvelope struct {
-	token         Nonce
+	token         string
 	validUntil    time.Time
 	remainingUses int
 }
@@ -113,7 +110,7 @@ func (store nonceStore) autoRefresh() func() {
 	return stop
 }
 
-func (store nonceStore) verify(token Nonce) error {
+func (store nonceStore) verify(token string) error {
 	if store.cache == nil {
 		return errors.New("store not properly initialized")
 	}
@@ -145,9 +142,9 @@ func (store nonceStore) verify(token Nonce) error {
 	return nil
 }
 
-func (store nonceStore) generate() (Nonce, error) {
+func (store nonceStore) generate() (string, error) {
 	if store.cache == nil {
-		return Nonce(""), errors.New("store not properly initialized")
+		return "", errors.New("store not properly initialized")
 	}
 
 	now := time.Now().UTC()
@@ -327,7 +324,7 @@ func (digest Digest) IsAuthorized(r *http.Request) (string, error) {
 		return "", errors.New("user not found")
 	}
 
-	err = digest.store.verify(Nonce(response.nonce))
+	err = digest.store.verify(response.nonce)
 	if err != nil {
 		return "", err
 	}

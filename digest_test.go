@@ -66,7 +66,7 @@ func TestMakeNonceStore(t *testing.T) {
 }
 
 func TestNonceStore_verify_ValidNonce(t *testing.T) {
-	validNonce := Nonce("thisIsMyNonce")
+	validNonce := "thisIsMyNonce"
 	second := time.Second * 1
 	envelope := nonceEnvelope{
 		token:         validNonce,
@@ -84,7 +84,7 @@ func TestNonceStore_verify_ValidNonce(t *testing.T) {
 }
 
 func TestNonceStore_verify_InvalidNonce(t *testing.T) {
-	invalidNonce := Nonce("thisIsMyNonce")
+	invalidNonce := "thisIsMyNonce"
 	second := time.Second * 1
 
 	store := makeNonceStore(1, second, second)
@@ -98,7 +98,7 @@ func TestNonceStore_verify_InvalidNonce(t *testing.T) {
 // TestNonceStore_verify_ExpiredNonce tests that an error is returned when
 // attempting to validate a nonce that has been expired.
 func TestNonceStore_verify_ExpiredNonce(t *testing.T) {
-	expiredNonce := Nonce("thisIsMyNonce")
+	expiredNonce := "thisIsMyNonce"
 	second := time.Second * 1
 	envelope := nonceEnvelope{
 		token:         expiredNonce,
@@ -117,7 +117,7 @@ func TestNonceStore_verify_ExpiredNonce(t *testing.T) {
 }
 
 func TestNonceStore_verify_NoRemainingUses(t *testing.T) {
-	expiredNonce := Nonce("thisIsMyNonce")
+	expiredNonce := "thisIsMyNonce"
 	second := time.Second * 1
 	envelope := nonceEnvelope{
 		token:         expiredNonce,
@@ -139,7 +139,7 @@ func TestNonceStore_verify_NoRemainingUses(t *testing.T) {
 // attempting to validate a nonce when the store's cache has not been
 // initialized.
 func TestNonceStore_verify_NilCache(t *testing.T) {
-	nonce := Nonce("thisIsMyNonce")
+	nonce := "thisIsMyNonce"
 
 	store := nonceStore{}
 	actual := store.verify(nonce)
@@ -192,9 +192,9 @@ func TestNonceStore_refresh(t *testing.T) {
 	cacheDuration := time.Second * 14
 	store := makeNonceStore(usageLimit, lifetime, cacheDuration)
 
-	validNonces := make([]Nonce, 3)
-	expiredNonces := make([]Nonce, 7)
-	usedUpNonces := make([]Nonce, 5)
+	validNonces := make([]string, 3)
+	expiredNonces := make([]string, 7)
+	usedUpNonces := make([]string, 5)
 
 	for i := range validNonces {
 		var err error
@@ -256,8 +256,8 @@ func TestNonceStore_autoRefresh(t *testing.T) {
 	cacheDuration := time.Millisecond * 10
 	store := makeNonceStore(usageLimit, lifetime, cacheDuration)
 
-	validNonces := make([]Nonce, 3)
-	expiredNonces := make([]Nonce, 7)
+	validNonces := make([]string, 3)
+	expiredNonces := make([]string, 7)
 
 	for i := range validNonces {
 		var err error
@@ -420,9 +420,9 @@ func TestDigest_FailureHandler(t *testing.T) {
 	if value, ok := rw.Headers["Www-Authenticate"]; !ok {
 		t.Errorf("wanted Www-Authenticate in headers, but it was not present")
 	} else {
-		var storedNonce Nonce
+		var storedNonce string
 		digest.store.cache.Range(func(k, v interface{}) bool {
-			storedNonce = k.(Nonce)
+			storedNonce = k.(string)
 			return false
 		})
 
