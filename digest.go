@@ -353,7 +353,7 @@ func (digest Digest) IsAuthorized(r *http.Request) (string, error) {
 	return "", errors.New("failed auth")
 }
 
-// FailureHandler reponds with a `401` HTTP code, the `WWW-Authenticate` header,
+// FailureHandler reponds with a 401 HTTP code, the WWW-Authenticate header,
 // and an error message for HTTP Basic Auth failed requests.
 func (digest Digest) FailureHandler(authErr error) http.Handler {
 	fn := func(w http.ResponseWriter, r *http.Request) {

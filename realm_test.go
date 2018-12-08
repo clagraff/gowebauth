@@ -153,7 +153,7 @@ func TestRealm_FailureHandler_Panics(t *testing.T) {
 }
 
 // TestRealm_FailureHandler_Success tests that a proper response is generated from
-// the returned `http.Handler` function when given an authentication error.
+// the returned http.Handler function when given an authentication error.
 func TestRealm_FailureHandler_Success(t *testing.T) {
 	authErr := errFailedAuth
 	realm := Realm{Name: "Restricted", Charset: "utf-8", users: map[string]string{"gon": "hunter1"}}

@@ -31,7 +31,7 @@ import (
 	"testing"
 )
 
-// TestMakeUser tests the instantiation of `User` structs based on a variety
+// TestMakeUser tests the instantiation of User structs based on a variety
 // of username and password pairings.
 func TestMakeUser(t *testing.T) {
 	var table = []struct {
@@ -89,7 +89,7 @@ func TestUser_IsAuthorized_Empty(t *testing.T) {
 
 // TestUser_IsAuthorized_MissingParts tests that an error is raised when
 // trying to check user authentication when given an authentication string
-// which doesnt follow the `<Scheme> <Token>` pattern.
+// which doesnt follow the <Scheme> <Token> pattern.
 func TestUser_IsAuthorized_MissingParts(t *testing.T) {
 	user := User{username: "edward", password: "p0nyta1l"}
 	authentication := base64.StdEncoding.EncodeToString([]byte("edward:p0nytail"))
@@ -104,7 +104,7 @@ func TestUser_IsAuthorized_MissingParts(t *testing.T) {
 
 // TestUser_IsAuthorized_BadScheme tests that an error is raised when
 // trying to check user authentication when given an authentication string
-// doesn't use the `Basic` scheme.
+// doesn't use the Basic scheme.
 func TestUser_IsAuthorized_BadScheme(t *testing.T) {
 	user := User{username: "edward", password: "p0nyta1l"}
 	authentication := "Wrong " + base64.StdEncoding.EncodeToString([]byte("edward:p0nytail"))
@@ -224,7 +224,7 @@ func TestUser_FailureHandler_Panics(t *testing.T) {
 }
 
 // TestUser_FailureHandler_Success tests that a proper response is generated from
-// the returned `http.Handler` function when given an authentication error.
+// the returned http.Handler function when given an authentication error.
 func TestUser_FailureHandler_Success(t *testing.T) {
 	authErr := errFailedAuth
 	user := User{username: "gon", password: "hunter1"}

@@ -31,14 +31,14 @@ SOFTWARE.
 */
 
 // User represents a single HTTP Basic Auth username and password pair.
-// Since the username and password of a `User` are non-exported, you should
-// create a new `User` using `MakeUser(username, password)`.
+// Since the username and password of a User are non-exported, you should
+// create a new User using MakeUser(username, password).
 type User struct {
 	username string
 	password string
 }
 
-// MakeUser creates a new `User` instance with the specified username and
+// MakeUser creates a new User instance with the specified username and
 // plaintext password. Usernames containing any colon characters results in
 // a panic.
 func MakeUser(username, password string) User {
@@ -52,7 +52,7 @@ func MakeUser(username, password string) User {
 	}
 }
 
-// IsAuthorized checks the authorization string for the `Basic` scheme and a
+// IsAuthorized checks the authorization string for the Basic scheme and a
 // username and password which match the current user.
 func (user User) IsAuthorized(r *http.Request) (string, error) {
 	authorization := r.Header.Get("Authorization")
@@ -93,10 +93,10 @@ func (user User) IsAuthorized(r *http.Request) (string, error) {
 	return username, nil
 }
 
-// FailureHandler reponds with a `401` HTTP code, the `WWW-Authenticate` header,
+// FailureHandler reponds with a 401 HTTP code, the WWW-Authenticate header,
 // and an error message for HTTP Basic Auth failed requests.
-// The realm is set as `Restricted` with the character set of `utf-8`. To
-// control these, use a `Realm` instead.
+// The realm is set as Restricted with the character set of utf-8. To
+// control these, use a Realm instead.
 func (user User) FailureHandler(authErr error) http.Handler {
 	fn := func(w http.ResponseWriter, r *http.Request) {
 		headerMap := w.Header()

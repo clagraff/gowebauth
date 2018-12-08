@@ -395,7 +395,7 @@ func TestMakeDigest(t *testing.T) {
 }
 
 // TestDigest_FailureHandler tests that a proper response is generated from the
-// returned `hhtp.Handler` function when given an authentication error.
+// returned hhtp.Handler function when given an authentication error.
 func TestDigest_FailureHandler(t *testing.T) {
 	user := MakeUser("Mufasa", "Circle Of Life")
 	realm, err := MakeRealm("testrealm@host.com", []User{user})

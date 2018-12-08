@@ -69,7 +69,7 @@ func NewMockResponseWriter() *mockResponseWriter {
 }
 
 // TestMiddleware_AuthError tests that a proper response is generated from
-// the returned `http.Handler` function when given an authentication error.
+// the returned http.Handler function when given an authentication error.
 func TestMiddleware_AuthError(t *testing.T) {
 	authErr := errFailedAuth
 	realm := Realm{Name: "Restricted", Charset: "utf-8", users: map[string]string{"gon": "hunter1"}}
@@ -107,7 +107,7 @@ func TestMiddleware_AuthError(t *testing.T) {
 }
 
 // TestMiddleware_ValidAuth tests that a proper response is generated from
-// the returned `http.Handler` function when no authentication error occurs.
+// the returned http.Handler function when no authentication error occurs.
 func TestMiddleware_ValidAuth(t *testing.T) {
 	realm := Realm{Name: "Restricted", Charset: "utf-8", users: map[string]string{"gon": "hunter1"}}
 
@@ -141,7 +141,7 @@ func TestMiddleware_ValidAuth(t *testing.T) {
 }
 
 // TestMiddleware_MissingAuth tests that a proper response is generated from
-// the returned `http.Handler` function when no authentication is present.
+// the returned http.Handler function when no authentication is present.
 func TestMiddleware_MissingAuth(t *testing.T) {
 	realm := Realm{Name: "Restricted", Charset: "utf-8", users: map[string]string{"gon": "hunter1"}}
 
@@ -175,7 +175,7 @@ func TestHandle(t *testing.T) {
 }
 
 // TestMiddleware_AuthError tests that a proper response is generated from
-// the returned `http.Handler` function when given an authentication error.
+// the returned http.Handler function when given an authentication error.
 func TestHandlerFunc_AuthError(t *testing.T) {
 	authErr := errFailedAuth
 	realm := Realm{Name: "Restricted", Charset: "utf-8", users: map[string]string{"gon": "hunter1"}}
@@ -207,7 +207,7 @@ func TestHandlerFunc_AuthError(t *testing.T) {
 }
 
 // TestMiddleware_ValidAuth tests that a proper response is generated from
-// the returned `http.Handler` function when no authentication error occurs.
+// the returned http.Handler function when no authentication error occurs.
 func TestHandlerFunc_ValidAuth(t *testing.T) {
 	realm := Realm{Name: "Restricted", Charset: "utf-8", users: map[string]string{"gon": "hunter1"}}
 
@@ -235,7 +235,7 @@ func TestHandlerFunc_ValidAuth(t *testing.T) {
 }
 
 // TestHandlerFunc_MissingAuth tests that a proper response is generated from
-// the returned `http.Handler` function when no authentication is present.
+// the returned http.Handler function when no authentication is present.
 func TestHandlerFunc_MissingAuth(t *testing.T) {
 	realm := Realm{Name: "Restricted", Charset: "utf-8", users: map[string]string{"gon": "hunter1"}}
 

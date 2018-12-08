@@ -31,16 +31,16 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
-// Realm represents a collection of `Users` for a given HTTP Basic Auth realm.
+// Realm represents a collection of Users for a given HTTP Basic Auth realm.
 type Realm struct {
 	Charset string
 	Name    string
 	users   map[string]string
 }
 
-// MakeRealm creates a new `Realm` instance for the given realm string and
-// any applicable `User`s.
-// This will default the `Realm`'s charset is `utf-8`.
+// MakeRealm creates a new Realm instance for the given realm string and
+// any applicable Users.
+// This will default the Realm's charset is utf-8.
 // If no users are provided, or users share the same username, an error will
 // occur.
 func MakeRealm(realm string, users []User) (Realm, error) {
@@ -108,7 +108,7 @@ func (realm Realm) IsAuthorized(r *http.Request) (string, error) {
 	return "", errFailedAuth
 }
 
-// FailureHandler reponds with a `401` HTTP code, the `WWW-Authenticate` header,
+// FailureHandler reponds with a 401 HTTP code, the WWW-Authenticate header,
 // and an error message for HTTP Basic Auth failed requests.
 func (realm Realm) FailureHandler(authErr error) http.Handler {
 	fn := func(w http.ResponseWriter, r *http.Request) {

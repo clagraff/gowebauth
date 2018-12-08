@@ -43,7 +43,7 @@ var errNoRealmUsers = errors.New("realm doesnt contain any users")
 type contextKey string
 
 // ContextKey is the key used to store the identity from
-// an `IsAuthorized` call into a request's `context.Context`.
+// an IsAuthorized call into a request's context.Context.
 // This is used for middleware and handlers.
 var ContextKey = contextKey("Identity")
 
